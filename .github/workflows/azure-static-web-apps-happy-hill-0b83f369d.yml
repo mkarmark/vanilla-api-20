@@ -14,23 +14,23 @@ jobs:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
     name: Build and Deploy Job
-    environment:
-       name: 'Production'
     permissions:
        id-token: write
     steps:
-      - name: Login to Azure
-        id: azurelogin
-        uses: azure/login@v2
+      - uses: actions/checkout@v3
         with:
-           client-id: ${{ secrets.AZURE_STATIC_WEB_APPS_HAPPY_HILL_0B83F369D_CLIENTID }}
-           tenant-id: ${{ secrets.AZURE_STATIC_WEB_APPS_HAPPY_HILL_0B83F369D_TENANTID }}
-           subscription-id: ${{ secrets.AZURE_STATIC_WEB_APPS_HAPPY_HILL_0B83F369D_SUBSCRIPTIONID }}
-      - name: Retrieve Azure Access Token
-        id: retrieveAccessToken
-        run: |
-           accessTokenString=$(az account get-access-token | tr '\n' ' ')
-           echo "accessTokenString=$accessTokenString"  >> $GITHUB_OUTPUT
+          submodules: true
+          lfs: false
+      - name: Install OIDC Client from Core Package
+        run: npm install @actions/core@1.6.0 @actions/http-client
+      - name: Get Id Token
+        uses: actions/github-script@v6
+        id: idtoken
+        with:
+           script: |
+               const coredemo = require('@actions/core')
+               return await coredemo.getIDToken()
+           result-encoding: string
       - name: Build And Deploy
         id: builddeploy
         uses: mkarmark/staticstiesactionoryx@master
@@ -42,8 +42,7 @@ jobs:
           app_location: "src" # App source code path
           api_location: "" # Api source code path - optional
           output_location: "" # Built app content directory - optional
-          azure_access_token: ${{ steps.retrieveAccessToken.outputs.accessTokenString }}
-          default_hostname: ${{ secrets.AZURE_STATIC_WEB_APPS_HAPPY_HILL_0B83F369D_DEFAULTHOSTNAME }}
+          github_id_token: ${{ steps.idtoken.outputs.result }}
           ###### End of Repository/Build Configurations ######
 
   close_pull_request_job:
